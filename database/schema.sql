@@ -21,12 +21,21 @@ create table if not exists bookings (
   occupancy_status text,
   signage_required boolean default false,
   notes text,
+  missing_information text[] default '{}',
   ai_summary text,
+  recommended_slot_start timestamptz,
+  recommended_slot_end timestamptz,
   calendar_event_id text,
+  calendar_event_html_link text,
   route_run_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table bookings add column if not exists missing_information text[] default '{}';
+alter table bookings add column if not exists recommended_slot_start timestamptz;
+alter table bookings add column if not exists recommended_slot_end timestamptz;
+alter table bookings add column if not exists calendar_event_html_link text;
 
 create table if not exists service_rules (
   service_type text primary key,
