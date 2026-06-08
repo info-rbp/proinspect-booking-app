@@ -15,13 +15,15 @@ export function AdminBookingClient() {
     async function loadBookings() {
       try {
         const response = await fetch('/api/bookings', { cache: 'no-store' });
+        const data = await response.json().catch(() => null);
+
         if (!response.ok) {
-          throw new Error(`Failed to load bookings: ${response.status}`);
+          const backendMessage = data?.message || data?.error || `HTTP ${response.status}`;
+          throw new Error(`Failed to load bookings: ${backendMessage}`);
         }
 
-        const data = await response.json();
         if (isMounted) {
-          setBookings(data.bookings ?? []);
+          setBookings(data?.bookings ?? []);
           setError(null);
         }
       } catch (loadError) {
