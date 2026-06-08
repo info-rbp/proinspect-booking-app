@@ -1,7 +1,12 @@
+import { unstable_noStore as noStore } from 'next/cache';
 import { AdminBookingTable } from '@/components/AdminBookingTable';
 import { listBookings } from '@/lib/database';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 export default async function AdminPage() {
+  noStore();
   const bookings = await listBookings();
 
   return (
