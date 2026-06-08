@@ -8,6 +8,7 @@ export default function HomePage() {
           <span className="badge">ProInspect</span>
           <h1>Booking App</h1>
           <p>Customer booking intake, admin review, Calendar scheduling and OFI route batching scaffold.</p>
+          <p style={{ color: 'var(--muted)', fontSize: 14 }}>Deployment marker: Cloud Run source build trigger.</p>
         </div>
       </div>
       <div className="grid grid-2">
