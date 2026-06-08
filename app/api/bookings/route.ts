@@ -14,34 +14,61 @@ async function parseRequest(request: NextRequest) {
   return Object.fromEntries(formData.entries());
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unexpected booking server error';
+}
+
 export async function GET() {
-  const bookings = await listBookings();
-  return NextResponse.json({ bookings });
+  try {
+    const bookings = await listBookings();
+    return NextResponse.json({ bookings });
+  } catch (error) {
+    console.error('Failed to list bookings', error);
+    return NextResponse.json(
+      { error: 'Failed to list bookings', message: errorMessage(error) },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: NextRequest) {
-  const raw = await parseRequest(request);
-  const parsed = bookingRequestSchema.safeParse(raw);
+  try {
+    const raw = await parseRequest(request);
+    const parsed = bookingRequestSchema.safeParse(raw);
 
-  if (!parsed.success) {
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid booking request', details: parsed.error.flatten() },
+        { status: 400 }
+      );
+    }
+
+    const record = createBookingRecord(parsed.data);
+    const scheduling = await scheduleBooking(record);
+    await saveBooking(record);
+
+    const accept = request.headers.get('accept') ?? '';
+    if (accept.includes('text/html')) {
+      const params = new URLSearchParams({
+        id: record.id,
+        status: record.status
+      });
+      return NextResponse.redirect(new URL(`/booking/received?${params}`, request.url), 303);
+    }
+
+    return NextResponse.json({ booking: record, scheduling }, { status: 201 });
+  } catch (error) {
+    console.error('Failed to submit booking', error);
+
+    const accept = request.headers.get('accept') ?? '';
+    if (accept.includes('text/html')) {
+      const params = new URLSearchParams({ reason: errorMessage(error) });
+      return NextResponse.redirect(new URL(`/booking/error?${params}`, request.url), 303);
+    }
+
     return NextResponse.json(
-      { error: 'Invalid booking request', details: parsed.error.flatten() },
-      { status: 400 }
+      { error: 'Failed to submit booking', message: errorMessage(error) },
+      { status: 500 }
     );
   }
-
-  const record = createBookingRecord(parsed.data);
-  const scheduling = await scheduleBooking(record);
-  await saveBooking(record);
-
-  const accept = request.headers.get('accept') ?? '';
-  if (accept.includes('text/html')) {
-    const params = new URLSearchParams({
-      id: record.id,
-      status: record.status
-    });
-    return NextResponse.redirect(new URL(`/booking/received?${params}`, request.url), 303);
-  }
-
-  return NextResponse.json({ booking: record, scheduling }, { status: 201 });
 }
