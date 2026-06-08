@@ -1,14 +1,6 @@
-import { unstable_noStore as noStore } from 'next/cache';
-import { AdminBookingTable } from '@/components/AdminBookingTable';
-import { listBookings } from '@/lib/database';
+import { AdminBookingClient } from '@/components/AdminBookingClient';
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-
-export default async function AdminPage() {
-  noStore();
-  const bookings = await listBookings();
-
+export default function AdminPage() {
   return (
     <main>
       <div className="header">
@@ -18,7 +10,7 @@ export default async function AdminPage() {
           <p>Review booking requests, OFI route-review items and scheduling status.</p>
         </div>
       </div>
-      <AdminBookingTable bookings={bookings} />
+      <AdminBookingClient />
     </main>
   );
 }
