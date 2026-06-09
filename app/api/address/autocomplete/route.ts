@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
         locationBias: {
           circle: {
             center: { latitude: -31.9523, longitude: 115.8613 },
-            radius: 80000
+            radius: 50000
           }
         }
       })
