@@ -1,0 +1,181 @@
+{% comment %}
+  ProInspect Booking Calendar
+  Multi-stage booking request block for Shopify-native booking flow.
+  Stage 1: service + address
+  Stage 2: availability/calendar slot selection
+  Stage 3: booking confirmation + Shopify checkout redirect
+{% endcomment %}
+
+<div
+  class="proinspect-booking"
+  data-proinspect-booking
+  data-api-base="{{ block.settings.api_base_url | escape }}"
+  data-checkout-mode="{{ block.settings.checkout_mode | escape }}"
+  data-default-service="{{ block.settings.default_service | escape }}"
+  data-service-map='{{ block.settings.service_variant_map | escape }}'
+>
+  <div class="proinspect-booking__header">
+    <p class="proinspect-booking__eyebrow">{{ block.settings.eyebrow | escape }}</p>
+    <h2>{{ block.settings.heading | escape }}</h2>
+    <p>{{ block.settings.intro | escape }}</p>
+  </div>
+
+  <ol class="proinspect-booking__steps" aria-label="Booking steps">
+    <li data-step-label="1" class="is-active">Service</li>
+    <li data-step-label="2">Availability</li>
+    <li data-step-label="3">Confirm</li>
+  </ol>
+
+  <form class="proinspect-booking__form" data-booking-form novalidate>
+    <section class="proinspect-booking__panel is-active" data-step="1">
+      <h3>Tell us what you need</h3>
+      <div class="proinspect-booking__grid">
+        <label>
+          Service type
+          <select name="serviceType" required data-service-select>
+            <option value="Property Condition Report">Property Condition Report</option>
+            <option value="Routine Inspection">Routine Inspection</option>
+            <option value="Exit Inspection">Exit Inspection</option>
+            <option value="Open For Inspection">Open For Inspection</option>
+            <option value="Key Installation">Key Installation</option>
+            <option value="Maintenance Request">Maintenance Request</option>
+            <option value="Other / Not Sure">Other / Not Sure</option>
+          </select>
+        </label>
+
+        <label>
+          Property address
+          <input name="propertyAddress" required autocomplete="street-address" placeholder="12 Example Street, Suburb WA 6000">
+        </label>
+      </div>
+
+      <div class="proinspect-booking__actions">
+        <button type="button" data-next-from-service>Find available times</button>
+      </div>
+    </section>
+
+    <section class="proinspect-booking__panel" data-step="2">
+      <h3>Choose an available time</h3>
+      <p class="proinspect-booking__muted">Times are calculated using service duration, calendar availability and estimated travel time from nearby bookings.</p>
+
+      <label class="proinspect-booking__date">
+        Preferred date
+        <input name="preferredDate" type="date" required data-preferred-date>
+      </label>
+
+      <div class="proinspect-booking__status" data-availability-status hidden></div>
+      <div class="proinspect-booking__slots" data-slots></div>
+
+      <input type="hidden" name="selectedSlotStart" data-selected-slot-start>
+      <input type="hidden" name="selectedSlotEnd" data-selected-slot-end>
+      <input type="hidden" name="selectedVariantId" data-selected-variant-id>
+      <input type="hidden" name="loadingLabel" data-loading-label>
+      <input type="hidden" name="loadingAmount" data-loading-amount>
+
+      <div class="proinspect-booking__actions">
+        <button type="button" class="proinspect-booking__secondary" data-back-to-service>Back</button>
+        <button type="button" data-next-from-slots disabled>Continue</button>
+      </div>
+    </section>
+
+    <section class="proinspect-booking__panel" data-step="3">
+      <h3>Confirm booking details</h3>
+      <div class="proinspect-booking__summary" data-summary></div>
+
+      <div class="proinspect-booking__grid">
+        <label>
+          Customer name
+          <input name="customerName" required autocomplete="name">
+        </label>
+        <label>
+          Email
+          <input name="customerEmail" type="email" required autocomplete="email">
+        </label>
+        <label>
+          Phone
+          <input name="customerPhone" required autocomplete="tel">
+        </label>
+        <label>
+          Agency, if applicable
+          <input name="agency">
+        </label>
+      </div>
+
+      <label>
+        Access details
+        <textarea name="accessMethod" placeholder="Lockbox, keys, tenant contact, parking, pets, gate code or alarm details"></textarea>
+      </label>
+
+      <label>
+        Additional notes
+        <textarea name="notes" placeholder="Anything else the booking team needs to know"></textarea>
+      </label>
+
+      <div class="proinspect-booking__actions">
+        <button type="button" class="proinspect-booking__secondary" data-back-to-slots>Back</button>
+        <button type="submit" data-confirm-booking>Confirm and continue to checkout</button>
+      </div>
+    </section>
+  </form>
+
+  <div class="proinspect-booking__status" data-booking-status hidden></div>
+</div>
+
+{{ 'proinspect-booking-calendar.css' | asset_url | stylesheet_tag }}
+<script src="{{ 'proinspect-booking-calendar.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "ProInspect booking calendar",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "eyebrow",
+      "label": "Eyebrow",
+      "default": "ProInspect"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Book an inspection"
+    },
+    {
+      "type": "text",
+      "id": "intro",
+      "label": "Intro text",
+      "default": "Select your service, enter the property address, then choose a suitable available time."
+    },
+    {
+      "type": "url",
+      "id": "api_base_url",
+      "label": "Cloud Run API base URL",
+      "default": "https://proinspect-booking-app-696236368989.australia-southeast1.run.app"
+    },
+    {
+      "type": "select",
+      "id": "checkout_mode",
+      "label": "Checkout mode",
+      "default": "cart",
+      "options": [
+        { "value": "cart", "label": "Add service to cart and go to checkout" },
+        { "value": "none", "label": "Create booking only" }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "default_service",
+      "label": "Fallback service",
+      "default": "Routine Inspection"
+    },
+    {
+      "type": "textarea",
+      "id": "service_variant_map",
+      "label": "Service to Shopify variant map JSON",
+      "info": "Maps service handles and loading labels to variant IDs. Example: {\"routine-inspection\":{\"Standard Hours\":\"52326025822490\"}}",
+      "default": "{}"
+    }
+  ]
+}
+{% endschema %}
