@@ -1,12 +1,40 @@
 (() => {
+  const API_PRICE_MAP = {
+    'Routine Inspection': {
+      'Standard Hours': '$50',
+      'Weekday After Hours': '$57.50',
+      Saturday: '$62.50',
+      Sunday: '$67.50',
+      'Public Holiday': '$75'
+    },
+    'Property Condition Report': {
+      'Standard Hours': '$150',
+      'Weekday After Hours': '$172.50',
+      Saturday: '$187.50',
+      Sunday: '$202.50',
+      'Public Holiday': '$225'
+    },
+    'Exit Inspection': {
+      'Standard Hours': '$150',
+      'Weekday After Hours': '$150',
+      Saturday: '$150',
+      Sunday: '$150',
+      'Public Holiday': '$150'
+    },
+    'Open For Inspection': {
+      'Standard Hours': '$150',
+      'Weekday After Hours': '$150',
+      Saturday: '$150',
+      Sunday: '$150',
+      'Public Holiday': '$150'
+    }
+  };
+
   const SERVICE_HANDLE_MAP = {
     'Property Condition Report': 'property-condition-report',
     'Routine Inspection': 'routine-inspection',
     'Exit Inspection': 'exit-inspection',
-    'Open For Inspection': 'open-for-inspection-attendance',
-    'Key Installation': 'key-installation',
-    'Maintenance Request': 'maintenance-coordination',
-    'Other / Not Sure': 'other-not-sure'
+    'Open For Inspection': 'open-for-inspection-attendance'
   };
 
   function qs(root, selector) {
@@ -39,6 +67,22 @@
     } catch (_error) {
       return iso;
     }
+  }
+
+  function timeOnly(iso) {
+    try {
+      return new Intl.DateTimeFormat('en-AU', {
+        hour: 'numeric',
+        minute: '2-digit'
+      }).format(new Date(iso));
+    } catch (_error) {
+      return iso;
+    }
+  }
+
+  function priceForSlot(serviceType, loadingLabel) {
+    const servicePrices = API_PRICE_MAP[serviceType] || {};
+    return servicePrices[loadingLabel] || servicePrices['Standard Hours'] || '$0';
   }
 
   function getServiceHandle(serviceType) {
@@ -93,11 +137,75 @@
         <dt>Service</dt><dd>${data.serviceType || ''}</dd>
         <dt>Address</dt><dd>${data.propertyAddress || ''}</dd>
         <dt>Selected time</dt><dd>${slot ? toDateLabel(slot.start) : ''}</dd>
+        <dt>Price</dt><dd>${priceForSlot(data.serviceType, data.loadingLabel || 'Standard Hours')}</dd>
         <dt>Estimated travel</dt><dd>${slot && slot.travelFromPreviousMinutes != null ? `${slot.travelFromPreviousMinutes} minutes from previous appointment` : 'To be confirmed'}</dd>
-        <dt>Timing category</dt><dd>${slot ? slot.loadingLabel : ''}</dd>
-        <dt>Loading</dt><dd>${slot && Number(slot.loadingAmount) > 0 ? `$${Number(slot.loadingAmount).toFixed(2)}` : 'No loading'}</dd>
       </dl>
     `;
+  }
+
+  function renderAddressSuggestions(box, input, placeInput, suggestions) {
+    if (!suggestions.length) {
+      box.hidden = true;
+      box.innerHTML = '';
+      return;
+    }
+
+    box.innerHTML = suggestions.map((suggestion) => `
+      <button type="button" class="proinspect-booking__address-suggestion" data-place-id="${suggestion.placeId}" data-text="${String(suggestion.text).replace(/"/g, '&quot;')}">
+        <strong>${suggestion.mainText || suggestion.text}</strong>
+        <small>${suggestion.secondaryText || ''}</small>
+      </button>
+    `).join('');
+
+    box.hidden = false;
+    qsa(box, '.proinspect-booking__address-suggestion').forEach((button) => {
+      button.addEventListener('click', () => {
+        input.value = button.dataset.text || '';
+        placeInput.value = button.dataset.placeId || '';
+        box.hidden = true;
+        box.innerHTML = '';
+      });
+    });
+  }
+
+  function setupAddressAutocomplete(block) {
+    const input = qs(block, '[data-address-input]');
+    const placeInput = qs(block, '[data-place-id]');
+    const box = qs(block, '[data-address-suggestions]');
+    const apiBase = block.dataset.apiBase || '';
+    let timer = null;
+
+    if (!input || !placeInput || !box) return;
+
+    input.addEventListener('input', () => {
+      window.clearTimeout(timer);
+      placeInput.value = '';
+      const value = input.value.trim();
+
+      if (value.length < 3) {
+        box.hidden = true;
+        box.innerHTML = '';
+        return;
+      }
+
+      timer = window.setTimeout(async () => {
+        try {
+          const response = await fetch(`${apiBase}/api/address/autocomplete?input=${encodeURIComponent(value)}`);
+          if (!response.ok) throw new Error('Autocomplete failed');
+          const payload = await response.json();
+          renderAddressSuggestions(box, input, placeInput, payload.suggestions || []);
+        } catch (_error) {
+          box.hidden = true;
+          box.innerHTML = '';
+        }
+      }, 250);
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!box.contains(event.target) && event.target !== input) {
+        box.hidden = true;
+      }
+    });
   }
 
   async function fetchAvailability(block) {
@@ -123,7 +231,7 @@
     loadingAmountInput.value = '';
 
     if (!data.serviceType || !data.propertyAddress || !data.preferredDate) {
-      showStatus(availabilityStatus, 'Choose a service, enter the property address and select a preferred date.');
+      showStatus(availabilityStatus, 'Choose a service, enter the property address and pick a date.');
       return;
     }
 
@@ -136,6 +244,7 @@
         body: JSON.stringify({
           serviceType: data.serviceType,
           propertyAddress: data.propertyAddress,
+          placeId: data.placeId || '',
           preferredDate: data.preferredDate
         })
       });
@@ -155,14 +264,13 @@
       hideStatus(availabilityStatus);
 
       slots.forEach((slot) => {
+        const label = slot.loadingLabel || 'Standard Hours';
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'proinspect-booking__slot';
         button.innerHTML = `
-          <strong>${toDateLabel(slot.start)}</strong>
-          <span>${slot.loadingLabel || 'Standard Hours'}</span>
-          <span>${slot.travelFromPreviousMinutes != null ? `${slot.travelFromPreviousMinutes} min travel from previous booking` : 'Travel check pending'}</span>
-          <span>${Number(slot.loadingAmount || 0) > 0 ? `Loading: $${Number(slot.loadingAmount).toFixed(2)}` : 'No loading'}</span>
+          <strong>${timeOnly(slot.start)}</strong>
+          <span class="proinspect-booking__price">${slot.priceLabel || priceForSlot(data.serviceType, label)}</span>
         `;
 
         button.addEventListener('click', () => {
@@ -170,7 +278,7 @@
           button.classList.add('is-selected');
           selectedSlotStart.value = slot.start;
           selectedSlotEnd.value = slot.end;
-          loadingLabelInput.value = slot.loadingLabel || 'Standard Hours';
+          loadingLabelInput.value = label;
           loadingAmountInput.value = String(slot.loadingAmount || 0);
           selectedVariantId.value = resolveVariantId(serviceVariantMap, data.serviceType, loadingLabelInput.value);
           block.__selectedSlot = slot;
@@ -200,7 +308,7 @@
     showStatus(status, 'Creating booking request...');
 
     try {
-      const response = await fetch(`${apiBase}/api/bookings`, {
+      const response = await fetch(`${apiBase}/api/bookings/request`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -217,7 +325,8 @@
             data.notes || '',
             `Selected slot: ${data.selectedSlotStart} to ${data.selectedSlotEnd}`,
             `Timing category: ${data.loadingLabel || 'Standard Hours'}`,
-            `Loading amount: ${data.loadingAmount || 0}`
+            `Loading amount: ${data.loadingAmount || 0}`,
+            `Google Place ID: ${data.placeId || ''}`
           ].filter(Boolean).join('\n')
         })
       });
@@ -263,6 +372,8 @@
     const serviceSelect = qs(block, '[data-service-select]');
     const preferredDate = qs(block, '[data-preferred-date]');
     const nextFromSlots = qs(block, '[data-next-from-slots]');
+
+    setupAddressAutocomplete(block);
 
     const urlService = getServiceFromUrl();
     if (urlService) {
