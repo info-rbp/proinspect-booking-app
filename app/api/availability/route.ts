@@ -1,20 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getServiceRule } from '@/lib/serviceRules';
-import { serviceTypes } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+const bookingServiceTypes = [
+  'Property Condition Report',
+  'Routine Inspection',
+  'Exit Inspection',
+  'Open For Inspection'
+] as const;
+
 const availabilityRequestSchema = z.object({
-  serviceType: z.enum(serviceTypes),
+  serviceType: z.enum(bookingServiceTypes),
   propertyAddress: z.string().min(6),
-  preferredDate: z.string().min(10).max(10)
+  preferredDate: z.string().min(10).max(10),
+  placeId: z.string().optional()
 });
 
+type LoadingLabel = 'Standard Hours' | 'Weekday After Hours' | 'Saturday' | 'Sunday' | 'Public Holiday';
+
 type LoadingRuleResult = {
-  loadingLabel: 'Standard Hours' | 'Weekday After Hours' | 'Saturday' | 'Sunday' | 'Public Holiday';
+  loadingLabel: LoadingLabel;
   loadingAmount: number;
+};
+
+const servicePriceMap: Record<(typeof bookingServiceTypes)[number], Record<LoadingLabel, number>> = {
+  'Routine Inspection': {
+    'Standard Hours': 50,
+    'Weekday After Hours': 57.5,
+    Saturday: 62.5,
+    Sunday: 67.5,
+    'Public Holiday': 75
+  },
+  'Property Condition Report': {
+    'Standard Hours': 150,
+    'Weekday After Hours': 172.5,
+    Saturday: 187.5,
+    Sunday: 202.5,
+    'Public Holiday': 225
+  },
+  'Exit Inspection': {
+    'Standard Hours': 150,
+    'Weekday After Hours': 150,
+    Saturday: 150,
+    Sunday: 150,
+    'Public Holiday': 150
+  },
+  'Open For Inspection': {
+    'Standard Hours': 150,
+    'Weekday After Hours': 150,
+    Saturday: 150,
+    Sunday: 150,
+    'Public Holiday': 150
+  }
 };
 
 function corsHeaders(origin: string | null) {
@@ -53,8 +93,19 @@ function toIsoWithPerthOffset(date: Date) {
 }
 
 function estimatePlaceholderTravelMinutes(slotIndex: number) {
-  // Placeholder until Google Routes is connected. Keeps the API contract stable for the Shopify template.
   return 12 + slotIndex * 4;
+}
+
+function formatAud(amount: number) {
+  return new Intl.NumberFormat('en-AU', {
+    style: 'currency',
+    currency: 'AUD',
+    minimumFractionDigits: amount % 1 === 0 ? 0 : 2
+  }).format(amount);
+}
+
+function priceFor(serviceType: (typeof bookingServiceTypes)[number], loadingLabel: LoadingLabel) {
+  return servicePriceMap[serviceType][loadingLabel] ?? servicePriceMap[serviceType]['Standard Hours'];
 }
 
 function buildCandidateSlots(input: z.infer<typeof availabilityRequestSchema>) {
@@ -71,6 +122,7 @@ function buildCandidateSlots(input: z.infer<typeof availabilityRequestSchema>) {
 
     const loading = classifyLoading(start);
     const travelFromPreviousMinutes = estimatePlaceholderTravelMinutes(index);
+    const priceAmount = priceFor(input.serviceType, loading.loadingLabel);
 
     return {
       start: toIsoWithPerthOffset(start),
@@ -80,6 +132,9 @@ function buildCandidateSlots(input: z.infer<typeof availabilityRequestSchema>) {
       bufferMinutes: rule.bufferMinutes,
       loadingLabel: loading.loadingLabel,
       loadingAmount: loading.loadingAmount,
+      currencyCode: 'AUD',
+      priceAmount,
+      priceLabel: formatAud(priceAmount),
       travelFromPreviousMinutes,
       travelToNextMinutes: null,
       score: 100 - travelFromPreviousMinutes - loading.loadingAmount / 5,
@@ -115,6 +170,7 @@ export async function POST(request: NextRequest) {
       {
         serviceType: parsed.data.serviceType,
         propertyAddress: parsed.data.propertyAddress,
+        placeId: parsed.data.placeId ?? null,
         preferredDate: parsed.data.preferredDate,
         slots,
         mode: 'placeholder',
