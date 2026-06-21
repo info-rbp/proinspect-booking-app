@@ -25,15 +25,12 @@ export function analyseBookingRequest(input: BookingRequest): Pick<BookingRecord
   if (!input.customerEmail) missingInformation.push('Customer email');
   if (!input.customerPhone) missingInformation.push('Customer phone');
   if (!input.propertyAddress) missingInformation.push('Full property address');
-  if (!input.accessMethod && input.serviceType !== 'Open For Inspection') missingInformation.push('Access details');
-  if (input.serviceType === 'Open For Inspection' && !input.preferredDate) missingInformation.push('Preferred OFI date');
+  if (!input.accessMethod) missingInformation.push('Access details');
 
   let status: BookingStatus = 'Ready For Scheduling';
 
   if (missingInformation.length > 0) {
     status = 'Pending Info';
-  } else if (input.serviceType === 'Open For Inspection') {
-    status = 'Pending Route Review';
   } else if (rule.requiresManualReview) {
     status = 'Manual Review';
   }
@@ -43,8 +40,6 @@ export function analyseBookingRequest(input: BookingRequest): Pick<BookingRecord
     input.preferredDate ? `Preferred date: ${input.preferredDate}.` : '',
     input.preferredWindow ? `Preferred window: ${input.preferredWindow}.` : '',
     input.accessMethod ? `Access: ${input.accessMethod}.` : '',
-    input.signageRequired ? 'Signage required.' : '',
-    status === 'Pending Route Review' ? 'Add to OFI route review queue.' : '',
     status === 'Manual Review' ? 'Manual review required before scheduling.' : ''
   ].filter(Boolean).join(' ');
 
