@@ -78,3 +78,55 @@ create table if not exists booking_status_history (
   note text,
   created_at timestamptz not null default now()
 );
+
+create table if not exists access_control_jobs (
+  id text primary key,
+  service_type text not null,
+  status text not null,
+  shopify_customer_id text,
+  shopify_company_id text,
+  shopify_company_location_id text,
+  shopify_order_id text,
+  shopify_order_name text,
+  shopify_line_item_id text,
+  client_name text,
+  customer_name text not null,
+  customer_email text not null,
+  customer_phone text not null,
+  preferred_date date,
+  occupancy_status text,
+  access_notes text,
+  notes text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists access_control_job_locations (
+  id bigserial primary key,
+  job_id text not null references access_control_jobs(id) on delete cascade,
+  location_type text not null check (location_type in ('pickup','installation','source','destination','return','storage','audit')),
+  address text,
+  contact_name text,
+  contact_phone text,
+  instructions text,
+  location_on_property text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists access_control_job_status_history (
+  id bigserial primary key,
+  job_id text not null references access_control_jobs(id) on delete cascade,
+  from_status text,
+  to_status text not null,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists access_control_job_files (
+  id bigserial primary key,
+  job_id text not null references access_control_jobs(id) on delete cascade,
+  file_type text not null,
+  file_url text not null,
+  file_name text,
+  created_at timestamptz not null default now()
+);

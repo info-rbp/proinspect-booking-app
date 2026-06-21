@@ -1,0 +1,71 @@
+{{ 'proinspect-access-control-booking.css' | asset_url | stylesheet_tag }}
+
+<section class="proinspect-access-control" data-proinspect-access-control>
+  <div class="proinspect-access-control__header">
+    <p class="proinspect-access-control__eyebrow">{{ block.settings.eyebrow }}</p>
+    <h2>{{ block.settings.heading }}</h2>
+    <p>{{ block.settings.intro_text }}</p>
+  </div>
+
+  {% unless customer %}
+    <div class="proinspect-access-control__panel proinspect-access-control__login-required">
+      <h3>Please log in to book this service</h3>
+      <p>This booking page requires a customer account so we can link the job to your client profile, property details, Shopify order and completion report.</p>
+      <a class="proinspect-access-control__button proinspect-access-control__button--primary" href="{{ routes.account_login_url }}">Log in</a>
+    </div>
+  {% else %}
+    <div
+      class="proinspect-access-control__app"
+      data-api-base="{{ block.settings.api_base_url | escape }}"
+      data-product-type="{{ block.settings.access_control_product | escape }}"
+      data-variant-id="{{ block.settings.shopify_variant_id | escape }}"
+      data-checkout-mode="{{ block.settings.checkout_mode | escape }}"
+    >
+      <input type="hidden" name="shopify_customer_id" value="{{ customer.id }}">
+      <input type="hidden" name="customer_name" value="{{ customer.name | escape }}">
+      <input type="hidden" name="customer_email" value="{{ customer.email | escape }}">
+      <input type="hidden" name="customer_phone" value="{{ customer.phone | escape }}">
+      <input type="hidden" name="shopify_company_id" value="{{ customer.current_company.id }}">
+      <input type="hidden" name="shopify_company_name" value="{{ customer.current_company.name | escape }}">
+      <input type="hidden" name="shopify_company_location_id" value="{{ customer.current_location.id }}">
+      <input type="hidden" name="shopify_company_location_name" value="{{ customer.current_location.name | escape }}">
+
+      <div class="proinspect-access-control__client-card">
+        <p class="proinspect-access-control__label">Booking as:</p>
+        <strong>{% if customer.current_company.name %}{{ customer.current_company.name }}{% else %}{{ customer.name }}{% endif %}</strong>
+        <p class="proinspect-access-control__label">Contact:</p>
+        <p>{{ customer.name }}<br>{{ customer.email }}{% if customer.phone %}<br>{{ customer.phone }}{% endif %}</p>
+      </div>
+      <div data-access-control-root></div>
+    </div>
+  {% endunless %}
+</section>
+
+<script src="{{ 'proinspect-access-control-booking.js' | asset_url }}" defer></script>
+
+{% schema %}
+{
+  "name": "Access Control Booking",
+  "target": "section",
+  "settings": [
+    { "type": "text", "id": "eyebrow", "label": "Eyebrow", "default": "ProInspect" },
+    { "type": "text", "id": "heading", "label": "Heading", "default": "Book Access Control Service" },
+    { "type": "textarea", "id": "intro_text", "label": "Intro text", "default": "Complete the booking details below. Your client details will be linked to your logged-in customer account." },
+    { "type": "url", "id": "api_base_url", "label": "Cloud Run API base URL", "default": "https://proinspect-booking-app-696236368989.australia-southeast1.run.app" },
+    { "type": "select", "id": "access_control_product", "label": "Access Control Product", "default": "Lockbox Installation", "options": [
+      { "value": "Lockbox Installation", "label": "Lockbox Installation" },
+      { "value": "Lockbox Removal / Relocation", "label": "Lockbox Removal / Relocation" },
+      { "value": "Key Collection & Return Service", "label": "Key Collection & Return Service" },
+      { "value": "Key Cutting & Tagging", "label": "Key Cutting & Tagging" },
+      { "value": "Off-Site Key Storage", "label": "Off-Site Key Storage" },
+      { "value": "Property Access Setup Service", "label": "Property Access Setup Service" },
+      { "value": "Key Audit & Register Update", "label": "Key Audit & Register Update" }
+    ] },
+    { "type": "text", "id": "shopify_variant_id", "label": "Shopify variant ID" },
+    { "type": "select", "id": "checkout_mode", "label": "Checkout mode", "default": "Add to cart and go to checkout", "options": [
+      { "value": "Add to cart and go to checkout", "label": "Add to cart and go to checkout" },
+      { "value": "Create job only", "label": "Create job only" }
+    ] }
+  ]
+}
+{% endschema %}
