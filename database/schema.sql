@@ -97,9 +97,20 @@ create table if not exists access_control_jobs (
   occupancy_status text,
   access_notes text,
   notes text,
+  primary_address text,
+  job_payload jsonb default '{}'::jsonb,
+  fulfilment_payload jsonb default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table access_control_jobs add column if not exists primary_address text;
+alter table access_control_jobs add column if not exists job_payload jsonb default '{}'::jsonb;
+alter table access_control_jobs add column if not exists fulfilment_payload jsonb default '{}'::jsonb;
+
+create index if not exists access_control_jobs_order_name_idx on access_control_jobs(shopify_order_name);
+create index if not exists access_control_jobs_status_idx on access_control_jobs(status);
+create index if not exists access_control_jobs_primary_address_idx on access_control_jobs(primary_address);
 
 create table if not exists access_control_job_locations (
   id bigserial primary key,
