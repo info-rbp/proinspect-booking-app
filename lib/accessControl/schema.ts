@@ -131,7 +131,7 @@ export const keyAuditRegisterUpdateJobSchema = z.object({
   outputRequired: requiredString
 });
 
-export const accessControlJobSchema = z.discriminatedUnion('serviceType', [
+export const accessControlJobSchema = z.union([
   lockboxInstallationJobSchema,
   lockboxRemovalRelocationJobSchema,
   keyCollectionReturnJobSchema,
@@ -150,7 +150,7 @@ export const fulfilAccessControlJobSchema = z.object({
   completionNotes: optionalString,
   completedBy: requiredString,
   completedDate: requiredString,
-  photoUrls: z.array(z.string().url()).optional().default([])
+  photoUrls: z.array(requiredString).optional().default([])
 });
 
 export const accessControlJobSearchSchema = z.object({
