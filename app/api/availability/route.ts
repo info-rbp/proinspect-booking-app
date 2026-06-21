@@ -1,19 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getServiceRule } from '@/lib/serviceRules';
+import { serviceTypes, type ServiceType } from '@/lib/types';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const bookingServiceTypes = [
-  'Property Condition Report',
-  'Routine Inspection',
-  'Exit Inspection',
-  'Open For Inspection'
-] as const;
-
 const availabilityRequestSchema = z.object({
-  serviceType: z.enum(bookingServiceTypes),
+  serviceType: z.enum(serviceTypes),
   propertyAddress: z.string().min(6),
   preferredDate: z.string().min(10).max(10),
   placeId: z.string().optional()
@@ -26,7 +20,7 @@ type LoadingRuleResult = {
   loadingAmount: number;
 };
 
-const servicePriceMap: Record<(typeof bookingServiceTypes)[number], Record<LoadingLabel, number>> = {
+const servicePriceMap: Record<ServiceType, Record<LoadingLabel, number>> = {
   'Routine Inspection': {
     'Standard Hours': 50,
     'Weekday After Hours': 57.5,
@@ -42,13 +36,6 @@ const servicePriceMap: Record<(typeof bookingServiceTypes)[number], Record<Loadi
     'Public Holiday': 225
   },
   'Exit Inspection': {
-    'Standard Hours': 150,
-    'Weekday After Hours': 150,
-    Saturday: 150,
-    Sunday: 150,
-    'Public Holiday': 150
-  },
-  'Open For Inspection': {
     'Standard Hours': 150,
     'Weekday After Hours': 150,
     Saturday: 150,
@@ -104,7 +91,7 @@ function formatAud(amount: number) {
   }).format(amount);
 }
 
-function priceFor(serviceType: (typeof bookingServiceTypes)[number], loadingLabel: LoadingLabel) {
+function priceFor(serviceType: ServiceType, loadingLabel: LoadingLabel) {
   return servicePriceMap[serviceType][loadingLabel] ?? servicePriceMap[serviceType]['Standard Hours'];
 }
 
