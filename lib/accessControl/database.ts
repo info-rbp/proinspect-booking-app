@@ -1,8 +1,9 @@
 import { Pool } from 'pg';
-import type { AccessControlJob, AccessControlJobStatus, LockboxInstallationJobRequest } from './types';
+import type { AccessControlJob, AccessControlJobRequest, AccessControlJobStatus } from './types';
 import { generateAccessControlJobId } from './jobs';
 
 const initialStatus: AccessControlJobStatus = 'Job Draft Created';
+type LockboxInstallationJobRequest = AccessControlJobRequest & Record<string, string | undefined>;
 let pool: Pool | null = null;
 
 function getDatabaseUrl(): string {
