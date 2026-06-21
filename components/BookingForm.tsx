@@ -70,11 +70,6 @@ export function BookingForm() {
         <textarea name="notes" placeholder="Anything else the booking team needs to know" />
       </label>
 
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <input style={{ width: 'auto' }} type="checkbox" name="signageRequired" value="true" />
-        Signage required for Open For Inspection
-      </label>
-
       <button type="submit">Submit booking request</button>
     </form>
   );

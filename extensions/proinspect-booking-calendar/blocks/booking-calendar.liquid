@@ -3,7 +3,8 @@
   Multi-stage booking request block for Shopify-native booking flow.
   Stage 1: service + address
   Stage 2: availability/calendar slot selection
-  Stage 3: booking confirmation + Shopify checkout redirect
+  Stage 3: booking confirmation
+  Stage 4: book another service or continue to checkout
 {% endcomment %}
 
 <div
@@ -12,6 +13,8 @@
   data-api-base="{{ block.settings.api_base_url | escape }}"
   data-checkout-mode="{{ block.settings.checkout_mode | escape }}"
   data-default-service="{{ block.settings.default_service | escape }}"
+  data-locked-service="{{ block.settings.locked_service | escape }}"
+  data-book-another-url="{{ block.settings.book_another_url | escape }}"
   data-service-map='{{ block.settings.service_variant_map | escape }}'
 >
   <div class="proinspect-booking__header">
@@ -20,7 +23,7 @@
     <p>{{ block.settings.intro | escape }}</p>
   </div>
 
-  <ol class="proinspect-booking__steps" aria-label="Booking steps">
+  <ol class="proinspect-booking__steps" aria-label="Booking steps" data-booking-steps>
     <li data-step-label="1" class="is-active">Service</li>
     <li data-step-label="2">Availability</li>
     <li data-step-label="3">Confirm</li>
@@ -29,23 +32,24 @@
   <form class="proinspect-booking__form" data-booking-form novalidate>
     <section class="proinspect-booking__panel is-active" data-step="1">
       <h3>Tell us what you need</h3>
+      <p class="proinspect-booking__locked-service" data-locked-service-label hidden>
+        Service: <strong data-locked-service-name></strong>
+      </p>
       <div class="proinspect-booking__grid">
-        <label>
+        <label data-service-field>
           Service type
           <select name="serviceType" required data-service-select>
             <option value="Property Condition Report">Property Condition Report</option>
             <option value="Routine Inspection">Routine Inspection</option>
             <option value="Exit Inspection">Exit Inspection</option>
-            <option value="Open For Inspection">Open For Inspection</option>
-            <option value="Key Installation">Key Installation</option>
-            <option value="Maintenance Request">Maintenance Request</option>
-            <option value="Other / Not Sure">Other / Not Sure</option>
           </select>
         </label>
 
         <label>
           Property address
-          <input name="propertyAddress" required autocomplete="street-address" placeholder="12 Example Street, Suburb WA 6000">
+          <input name="propertyAddress" required autocomplete="street-address" placeholder="12 Example Street, Suburb WA 6000" data-address-input>
+          <input type="hidden" name="placeId" data-place-id>
+          <div class="proinspect-booking__address-suggestions" data-address-suggestions hidden></div>
         </label>
       </div>
 
@@ -113,10 +117,19 @@
 
       <div class="proinspect-booking__actions">
         <button type="button" class="proinspect-booking__secondary" data-back-to-slots>Back</button>
-        <button type="submit" data-confirm-booking>Confirm and continue to checkout</button>
+        <button type="submit" data-confirm-booking>Confirm booking</button>
       </div>
     </section>
   </form>
+
+  <section class="proinspect-booking__confirmation" data-booking-complete hidden>
+    <h3>Booking added</h3>
+    <p data-booking-complete-message>Your booking request has been added.</p>
+    <div class="proinspect-booking__actions">
+      <button type="button" class="proinspect-booking__secondary" data-book-another-service>Book another service</button>
+      <a class="proinspect-booking__button" href="/checkout" data-continue-checkout>Continue to checkout</a>
+    </div>
+  </section>
 
   <div class="proinspect-booking__status" data-booking-status hidden></div>
 </div>
@@ -159,15 +172,39 @@
       "label": "Checkout mode",
       "default": "cart",
       "options": [
-        { "value": "cart", "label": "Add service to cart and go to checkout" },
+        { "value": "cart", "label": "Add service to cart and let customer continue" },
         { "value": "none", "label": "Create booking only" }
       ]
     },
     {
-      "type": "text",
+      "type": "select",
       "id": "default_service",
       "label": "Fallback service",
-      "default": "Routine Inspection"
+      "default": "Routine Inspection",
+      "options": [
+        { "value": "Property Condition Report", "label": "Property Condition Report" },
+        { "value": "Routine Inspection", "label": "Routine Inspection" },
+        { "value": "Exit Inspection", "label": "Exit Inspection" }
+      ]
+    },
+    {
+      "type": "select",
+      "id": "locked_service",
+      "label": "Lock this page to one service",
+      "default": "",
+      "options": [
+        { "value": "", "label": "Do not lock service" },
+        { "value": "Property Condition Report", "label": "Property Condition Report" },
+        { "value": "Routine Inspection", "label": "Routine Inspection" },
+        { "value": "Exit Inspection", "label": "Exit Inspection" }
+      ]
+    },
+    {
+      "type": "text",
+      "id": "book_another_url",
+      "label": "Book another service URL",
+      "info": "Optional. Use a general booking page URL if this block is locked to one service, for example /pages/book-an-inspection.",
+      "default": ""
     },
     {
       "type": "textarea",

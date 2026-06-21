@@ -14,12 +14,7 @@ export type BookingStatus = (typeof bookingStatuses)[number];
 export const serviceTypes = [
   'Property Condition Report',
   'Routine Inspection',
-  'Exit Inspection',
-  'Maintenance Request',
-  'Insurance Claims Management',
-  'Key Installation',
-  'Open For Inspection',
-  'Other / Not Sure'
+  'Exit Inspection'
 ] as const;
 
 export type ServiceType = (typeof serviceTypes)[number];

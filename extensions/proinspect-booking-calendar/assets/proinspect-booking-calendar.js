@@ -20,22 +20,16 @@
       Saturday: '$150',
       Sunday: '$150',
       'Public Holiday': '$150'
-    },
-    'Open For Inspection': {
-      'Standard Hours': '$150',
-      'Weekday After Hours': '$150',
-      Saturday: '$150',
-      Sunday: '$150',
-      'Public Holiday': '$150'
     }
   };
 
   const SERVICE_HANDLE_MAP = {
     'Property Condition Report': 'property-condition-report',
     'Routine Inspection': 'routine-inspection',
-    'Exit Inspection': 'exit-inspection',
-    'Open For Inspection': 'open-for-inspection-attendance'
+    'Exit Inspection': 'exit-inspection'
   };
+
+  const SERVICE_TYPES = Object.keys(SERVICE_HANDLE_MAP);
 
   function qs(root, selector) {
     return root.querySelector(selector);
@@ -46,11 +40,13 @@
   }
 
   function showStatus(el, message) {
+    if (!el) return;
     el.hidden = false;
     el.textContent = message;
   }
 
   function hideStatus(el) {
+    if (!el) return;
     el.hidden = true;
     el.textContent = '';
   }
@@ -80,23 +76,32 @@
     }
   }
 
+  function normaliseHandle(value) {
+    return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  }
+
+  function resolveService(value) {
+    if (!value) return '';
+    if (SERVICE_TYPES.includes(value)) return value;
+
+    const normalised = normaliseHandle(value);
+    const match = Object.entries(SERVICE_HANDLE_MAP).find(([, handle]) => handle === normalised);
+    return match ? match[0] : '';
+  }
+
   function priceForSlot(serviceType, loadingLabel) {
     const servicePrices = API_PRICE_MAP[serviceType] || {};
     return servicePrices[loadingLabel] || servicePrices['Standard Hours'] || '$0';
   }
 
   function getServiceHandle(serviceType) {
-    return SERVICE_HANDLE_MAP[serviceType] || serviceType.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    return SERVICE_HANDLE_MAP[serviceType] || normaliseHandle(serviceType);
   }
 
   function getServiceFromUrl() {
     const params = new URLSearchParams(window.location.search);
     const raw = params.get('service') || params.get('serviceType') || params.get('product') || '';
-    if (!raw) return '';
-
-    const normalised = raw.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    const match = Object.entries(SERVICE_HANDLE_MAP).find(([, handle]) => handle === normalised);
-    return match ? match[0] : '';
+    return resolveService(raw);
   }
 
   function parseServiceVariantMap(block) {
@@ -121,6 +126,13 @@
     qsa(block, '[data-step-label]').forEach((label) => {
       label.classList.toggle('is-active', label.dataset.stepLabel === String(stepNumber));
     });
+  }
+
+  function setDefaultDate(preferredDate) {
+    if (!preferredDate) return;
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    preferredDate.value = tomorrow.toISOString().slice(0, 10);
   }
 
   function getFormData(form) {
@@ -292,6 +304,60 @@
     }
   }
 
+  function showCompletion(block, bookingId, cartAdded) {
+    const form = qs(block, '[data-booking-form]');
+    const steps = qs(block, '[data-booking-steps]');
+    const confirmation = qs(block, '[data-booking-complete]');
+    const message = qs(block, '[data-booking-complete-message]');
+    const checkoutLink = qs(block, '[data-continue-checkout]');
+    const status = qs(block, '[data-booking-status]');
+    const checkoutMode = block.dataset.checkoutMode || 'cart';
+
+    hideStatus(status);
+    form.hidden = true;
+    if (steps) steps.hidden = true;
+    confirmation.hidden = false;
+
+    if (cartAdded) {
+      message.textContent = `Booking request ${bookingId} has been added to your cart. You can book another service or continue to checkout.`;
+    } else if (checkoutMode === 'cart') {
+      message.textContent = `Booking request ${bookingId} was created, but no Shopify checkout item was added. Check the service variant map for this page.`;
+    } else {
+      message.textContent = `Booking request ${bookingId} has been created.`;
+    }
+
+    checkoutLink.hidden = checkoutMode !== 'cart' || !cartAdded;
+  }
+
+  function resetBookingBlock(block) {
+    const form = qs(block, '[data-booking-form]');
+    const steps = qs(block, '[data-booking-steps]');
+    const confirmation = qs(block, '[data-booking-complete]');
+    const slotsEl = qs(block, '[data-slots]');
+    const preferredDate = qs(block, '[data-preferred-date]');
+    const nextButton = qs(block, '[data-next-from-slots]');
+    const serviceSelect = qs(block, '[data-service-select]');
+    const lockedService = resolveService(block.dataset.lockedService || '');
+
+    form.reset();
+    if (lockedService) {
+      serviceSelect.value = lockedService;
+    } else if (block.dataset.defaultService) {
+      serviceSelect.value = resolveService(block.dataset.defaultService) || 'Routine Inspection';
+    }
+
+    setDefaultDate(preferredDate);
+    block.__selectedSlot = null;
+    slotsEl.innerHTML = '';
+    nextButton.disabled = true;
+    form.hidden = false;
+    if (steps) steps.hidden = false;
+    confirmation.hidden = true;
+    hideStatus(qs(block, '[data-booking-status]'));
+    hideStatus(qs(block, '[data-availability-status]'));
+    setStep(block, 1);
+  }
+
   async function submitBooking(block, event) {
     event.preventDefault();
 
@@ -338,9 +404,9 @@
       const payload = await response.json();
       const bookingId = payload.booking && payload.booking.id ? payload.booking.id : '';
       const checkoutMode = block.dataset.checkoutMode || 'cart';
+      let cartAdded = false;
 
       if (checkoutMode === 'cart' && data.selectedVariantId) {
-        await fetch('/cart/clear.js', { method: 'POST' });
         await fetch('/cart/add.js', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -356,37 +422,46 @@
             }
           })
         });
-
-        window.location.href = '/checkout';
-        return;
+        cartAdded = true;
       }
 
-      showStatus(status, `Booking request ${bookingId} created.`);
+      showCompletion(block, bookingId, cartAdded);
     } catch (error) {
       showStatus(status, 'The booking could not be confirmed. Please check the details and try again.');
     }
   }
 
+  function setupLockedService(block) {
+    const serviceSelect = qs(block, '[data-service-select]');
+    const serviceField = qs(block, '[data-service-field]');
+    const lockedServiceLabel = qs(block, '[data-locked-service-label]');
+    const lockedServiceName = qs(block, '[data-locked-service-name]');
+    const lockedService = resolveService(block.dataset.lockedService || '');
+    const urlService = getServiceFromUrl();
+    const defaultService = resolveService(block.dataset.defaultService || '') || 'Routine Inspection';
+
+    if (lockedService) {
+      serviceSelect.value = lockedService;
+      serviceField.hidden = true;
+      lockedServiceLabel.hidden = false;
+      lockedServiceName.textContent = lockedService;
+      return;
+    }
+
+    serviceField.hidden = false;
+    lockedServiceLabel.hidden = true;
+    serviceSelect.value = urlService || defaultService;
+  }
+
   function initBookingBlock(block) {
     const form = qs(block, '[data-booking-form]');
-    const serviceSelect = qs(block, '[data-service-select]');
     const preferredDate = qs(block, '[data-preferred-date]');
     const nextFromSlots = qs(block, '[data-next-from-slots]');
+    const bookAnotherButton = qs(block, '[data-book-another-service]');
 
     setupAddressAutocomplete(block);
-
-    const urlService = getServiceFromUrl();
-    if (urlService) {
-      serviceSelect.value = urlService;
-    } else if (block.dataset.defaultService) {
-      serviceSelect.value = block.dataset.defaultService;
-    }
-
-    if (!preferredDate.value) {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      preferredDate.value = tomorrow.toISOString().slice(0, 10);
-    }
+    setupLockedService(block);
+    setDefaultDate(preferredDate);
 
     qs(block, '[data-next-from-service]').addEventListener('click', () => {
       const data = getFormData(form);
@@ -395,7 +470,7 @@
         showStatus(status, 'Select a service and enter the property address first.');
         return;
       }
-      qs(block, '[data-booking-status]').hidden = true;
+      hideStatus(qs(block, '[data-booking-status]'));
       setStep(block, 2);
       fetchAvailability(block);
     });
@@ -407,6 +482,15 @@
     nextFromSlots.addEventListener('click', () => {
       renderSummary(block, block.__selectedSlot);
       setStep(block, 3);
+    });
+
+    bookAnotherButton.addEventListener('click', () => {
+      const bookAnotherUrl = block.dataset.bookAnotherUrl || '';
+      if (bookAnotherUrl) {
+        window.location.href = bookAnotherUrl;
+        return;
+      }
+      resetBookingBlock(block);
     });
 
     form.addEventListener('submit', (event) => submitBooking(block, event));
