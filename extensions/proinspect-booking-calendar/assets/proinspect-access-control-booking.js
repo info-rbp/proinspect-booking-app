@@ -1,18 +1,127 @@
 (() => {
-  const productModes = {
-    'Lockbox Installation': { implemented: true },
-    // TODO: Lockbox Removal / Relocation: login, removal/relocation type, existing details, destination, preferred date, confirm, add another, checkout.
-    'Lockbox Removal / Relocation': { implemented: false },
-    // TODO: Key Collection & Return Service: movement type, pickup, drop-off/return, key/property details, preferred date, confirm, add another, checkout.
-    'Key Collection & Return Service': { implemented: false },
-    // TODO: Key Cutting & Tagging: key receipt method, property/key details, copies/tagging, return/storage, due date, confirm, add another, checkout.
-    'Key Cutting & Tagging': { implemented: false },
-    // TODO: Off-Site Key Storage: storage action, property/key details, handover/collection, authorised contacts, due date, add another, checkout.
-    'Off-Site Key Storage': { implemented: false },
-    // TODO: Property Access Setup Service: property, setup tasks, current access details, preferred date, confirm, add another, checkout.
-    'Property Access Setup Service': { implemented: false },
-    // TODO: Key Audit & Register Update: audit scope, current register upload/link, property list, completion date, confirm, checkout.
-    'Key Audit & Register Update': { implemented: false }
+  const productConfigs = {
+    'Lockbox Installation': {
+      itemLabel: 'Lockbox Installation',
+      confirmLabel: 'Confirm this installation',
+      addAnotherLabel: 'Add another Lockbox Installation',
+      preferredDateLabel: 'Preferred installation date',
+      fields: [
+        { name: 'pickupRequired', label: 'Pickup requirement', type: 'select', required: true, options: ['Pickup required', 'No pickup required - lockbox already onsite', 'No pickup required - ProInspect supplies lockbox'] },
+        { name: 'pickupAddress', label: 'Pickup address', type: 'text', conditionalRequired: { field: 'pickupRequired', value: 'Pickup required' } },
+        { name: 'pickupFromName', label: 'Who should we pick up from?', type: 'text', conditionalRequired: { field: 'pickupRequired', value: 'Pickup required' } },
+        { name: 'pickupContactPhone', label: 'Pickup contact phone', type: 'tel' },
+        { name: 'pickupNotes', label: 'Pickup notes', type: 'textarea' },
+        { name: 'installationAddress', label: 'Installation property address', type: 'text', required: true },
+        { name: 'installationLocationOnProperty', label: 'Location on property', type: 'text', required: true, helper: 'Front door, side gate, meter box area, garage wall, rear entry, or installer discretion.' },
+        { name: 'occupancyStatus', label: 'Occupancy status', type: 'select', required: true, options: ['', 'Vacant', 'Tenanted', 'Owner occupied', 'Unknown'] },
+        { name: 'accessNotes', label: 'Access notes', type: 'textarea', helper: 'Gate codes, alarm details, parking, pets, tenant contact or access limitations.' }
+      ],
+      summary: ['pickupRequired', 'pickupAddress', 'installationAddress', 'installationLocationOnProperty', 'preferredDate'],
+      cart: ['pickupRequired', 'pickupAddress', 'pickupFromName', 'installationAddress', 'installationLocationOnProperty', 'preferredDate']
+    },
+    'Lockbox Removal / Relocation': {
+      itemLabel: 'Lockbox Removal / Relocation',
+      confirmLabel: 'Confirm this removal/relocation',
+      addAnotherLabel: 'Add another Removal / Relocation',
+      preferredDateLabel: 'Preferred date',
+      fields: [
+        { name: 'actionType', label: 'What do you need done?', type: 'select', required: true, options: ['Removal only', 'Relocation at same property', 'Relocation to another property'] },
+        { name: 'currentPropertyAddress', label: 'Existing property address', type: 'text', required: true },
+        { name: 'currentLockboxLocation', label: 'Current lockbox location', type: 'text', required: true },
+        { name: 'lockboxCode', label: 'Lockbox code, if known', type: 'text' },
+        { name: 'returnOrDisposalInstruction', label: 'Return/disposal instruction', type: 'select', options: ['', 'Return to agency', 'Leave onsite', 'Hold for collection', 'Dispose', 'Other'] },
+        { name: 'newLocationOnProperty', label: 'New location on same property', type: 'text', helper: 'Required when relocating at the same property.' },
+        { name: 'destinationPropertyAddress', label: 'Destination property address', type: 'text', helper: 'Required when relocating to another property.' },
+        { name: 'destinationLocationOnProperty', label: 'Destination lockbox location', type: 'text', helper: 'Required when relocating to another property.' },
+        { name: 'accessNotes', label: 'Access instructions', type: 'textarea', required: true }
+      ],
+      summary: ['actionType', 'currentPropertyAddress', 'currentLockboxLocation', 'destinationPropertyAddress', 'preferredDate'],
+      cart: ['actionType', 'currentPropertyAddress', 'currentLockboxLocation', 'destinationPropertyAddress', 'preferredDate']
+    },
+    'Key Collection & Return Service': {
+      itemLabel: 'Key Collection / Return',
+      confirmLabel: 'Confirm this key movement',
+      addAnotherLabel: 'Add another key movement',
+      preferredDateLabel: 'Preferred date',
+      fields: [
+        { name: 'movementType', label: 'Key movement type', type: 'select', required: true, options: ['Collect keys', 'Return keys', 'Collect and return keys', 'Move keys from one location to another'] },
+        { name: 'propertyAddress', label: 'Property linked to keys', type: 'text', required: true },
+        { name: 'keySetDescription', label: 'Key set description', type: 'textarea', required: true },
+        { name: 'collectionAddress', label: 'Collection address', type: 'text' },
+        { name: 'collectionContactName', label: 'Collection contact name', type: 'text' },
+        { name: 'collectionContactPhone', label: 'Collection contact phone', type: 'tel' },
+        { name: 'collectionInstructions', label: 'Collection instructions', type: 'textarea' },
+        { name: 'returnAddress', label: 'Return/drop-off address', type: 'text' },
+        { name: 'returnContactName', label: 'Return contact name', type: 'text' },
+        { name: 'returnContactPhone', label: 'Return contact phone', type: 'tel' },
+        { name: 'returnInstructions', label: 'Return/drop-off instructions', type: 'textarea' },
+        { name: 'authorisedBy', label: 'Authorised by', type: 'text', required: true }
+      ],
+      summary: ['movementType', 'propertyAddress', 'collectionAddress', 'returnAddress', 'preferredDate'],
+      cart: ['movementType', 'propertyAddress', 'collectionAddress', 'returnAddress', 'preferredDate']
+    },
+    'Key Cutting & Tagging': {
+      itemLabel: 'Key Cutting & Tagging',
+      confirmLabel: 'Confirm this key cutting job',
+      addAnotherLabel: 'Add another key cutting job',
+      preferredDateLabel: 'Preferred completion date',
+      fields: [
+        { name: 'keyReceiptMethod', label: 'How will ProInspect receive the keys?', type: 'select', required: true, options: ['Client will drop keys off', 'ProInspect to collect keys', 'Keys already held by ProInspect'] },
+        { name: 'propertyAddress', label: 'Property address', type: 'text', required: true },
+        { name: 'keyType', label: 'Key type', type: 'text', required: true },
+        { name: 'numberOfCopies', label: 'Number of copies', type: 'number', required: true },
+        { name: 'taggingInstructions', label: 'Tagging instructions', type: 'textarea', required: true },
+        { name: 'collectionAddress', label: 'Collection address, if ProInspect collects', type: 'text' },
+        { name: 'returnOrStorageInstructions', label: 'Return/storage instructions', type: 'textarea', required: true }
+      ],
+      summary: ['keyReceiptMethod', 'propertyAddress', 'numberOfCopies', 'preferredDate'],
+      cart: ['keyReceiptMethod', 'propertyAddress', 'numberOfCopies', 'preferredDate']
+    },
+    'Off-Site Key Storage': {
+      itemLabel: 'Off-Site Key Storage',
+      confirmLabel: 'Confirm this storage job',
+      addAnotherLabel: 'Add another key storage job',
+      preferredDateLabel: 'Preferred date / due date',
+      fields: [
+        { name: 'storageAction', label: 'Storage action', type: 'select', required: true, options: ['Store new key set', 'Update stored key set', 'Retrieve stored key set', 'End storage and return keys'] },
+        { name: 'propertyAddress', label: 'Property address', type: 'text', required: true },
+        { name: 'keyInventory', label: 'Key inventory', type: 'textarea', required: true },
+        { name: 'handoverOrCollectionLocation', label: 'Handover or collection location', type: 'text', required: true },
+        { name: 'authorisedContacts', label: 'Authorised contacts', type: 'textarea', required: true },
+        { name: 'storageInstructions', label: 'Storage instructions', type: 'textarea' }
+      ],
+      summary: ['storageAction', 'propertyAddress', 'handoverOrCollectionLocation', 'preferredDate'],
+      cart: ['storageAction', 'propertyAddress', 'handoverOrCollectionLocation', 'preferredDate']
+    },
+    'Property Access Setup Service': {
+      itemLabel: 'Property Access Setup',
+      confirmLabel: 'Confirm this access setup',
+      addAnotherLabel: 'Add another property setup',
+      preferredDateLabel: 'Preferred date',
+      fields: [
+        { name: 'propertyAddress', label: 'Property address', type: 'text', required: true },
+        { name: 'setupTasks', label: 'Required setup tasks', type: 'checkboxes', required: true, options: ['Check keys work', 'Set up access notes', 'Place/check lockbox', 'Confirm gate/alarm/parking details', 'Prepare property for inspection/trade access', 'Other'] },
+        { name: 'currentAccessDetails', label: 'Current access details', type: 'textarea', required: true },
+        { name: 'occupancyStatus', label: 'Occupancy status', type: 'select', required: true, options: ['', 'Vacant', 'Tenanted', 'Owner occupied', 'Unknown'] },
+        { name: 'accessNotes', label: 'Additional access notes', type: 'textarea' }
+      ],
+      summary: ['propertyAddress', 'setupTasks', 'occupancyStatus', 'preferredDate'],
+      cart: ['propertyAddress', 'setupTasks', 'preferredDate']
+    },
+    'Key Audit & Register Update': {
+      itemLabel: 'Key Audit / Register Update',
+      confirmLabel: 'Confirm this audit job',
+      addAnotherLabel: 'Add another audit job',
+      preferredDateLabel: 'Preferred completion date',
+      fields: [
+        { name: 'auditScope', label: 'Audit scope', type: 'select', required: true, options: ['Single property', 'Multiple properties', 'Key cabinet / agency office', 'Rent roll takeover', 'Existing key register cleanup'] },
+        { name: 'propertyOrPortfolioDetails', label: 'Property/list details', type: 'textarea', required: true },
+        { name: 'currentRegisterLink', label: 'Current key register link, if available', type: 'url' },
+        { name: 'outputRequired', label: 'Output required', type: 'textarea', required: true }
+      ],
+      summary: ['auditScope', 'propertyOrPortfolioDetails', 'preferredDate'],
+      cart: ['auditScope', 'preferredDate']
+    }
   };
 
   document.querySelectorAll('[data-proinspect-access-control] .proinspect-access-control__app').forEach(init);
@@ -20,7 +129,7 @@
   function init(app) {
     const root = app.querySelector('[data-access-control-root]');
     const config = {
-      apiBase: app.dataset.apiBase?.replace(/\/$/, '') || '',
+      apiBase: (app.dataset.apiBase || '').replace(/\/$/, ''),
       productType: app.dataset.productType || 'Lockbox Installation',
       variantId: app.dataset.variantId || '',
       checkoutMode: app.dataset.checkoutMode || 'Add to cart and go to checkout',
@@ -28,64 +137,193 @@
     };
     const accessControlJobs = [];
     window.proinspectAccessControlJobs = accessControlJobs;
-    if (!productModes[config.productType]?.implemented) return renderComingSoon(root, config.productType);
     renderForm(root, config, accessControlJobs);
   }
 
   function readClient(app) {
     const val = (name) => app.querySelector(`[name="${name}"]`)?.value || '';
     return {
-      shopify_customer_id: val('shopify_customer_id'), shopify_company_id: val('shopify_company_id'), shopify_company_location_id: val('shopify_company_location_id'),
-      client_name: val('shopify_company_name') || val('customer_name'), customer_name: val('customer_name'), customer_email: val('customer_email'), customer_phone: val('customer_phone')
+      shopifyCustomerId: val('shopify_customer_id'),
+      shopifyCompanyId: val('shopify_company_id'),
+      shopifyCompanyLocationId: val('shopify_company_location_id'),
+      clientName: val('shopify_company_name') || val('customer_name'),
+      customerName: val('customer_name'),
+      customerEmail: val('customer_email'),
+      customerPhone: val('customer_phone')
     };
   }
 
-  function renderComingSoon(root, product) {
-    root.innerHTML = `<div class="proinspect-access-control__panel"><h3>${escapeHtml(product)}</h3><p>This Access Control booking workflow is being configured. Please contact ProInspect to complete this booking.</p></div>`;
-  }
-
-  function renderForm(root, config, jobs, values = {}) {
-    const phoneRequired = !config.client.customer_phone;
+  function renderForm(root, config, jobs) {
+    const product = productConfigs[config.productType] || productConfigs['Lockbox Installation'];
+    const phoneRequired = !config.client.customerPhone;
     root.innerHTML = `<form class="proinspect-access-control__form" novalidate>
-      <div class="proinspect-access-control__step"><h3>1. Client summary</h3>
-        <label>Pickup location option<select name="pickup_location_option"><option>Enter new pickup location</option><option>Use my account/default location</option></select></label>
-        ${phoneRequired ? field('customer_phone','Contact phone','tel',true,values.customer_phone || '') : ''}
+      <div class="proinspect-access-control__step">
+        <h3>1. Client summary</h3>
+        <p><strong>${escapeHtml(config.client.clientName || config.client.customerName)}</strong><br>${escapeHtml(config.client.customerName)}<br>${escapeHtml(config.client.customerEmail)}</p>
+        <label>Pickup/location option<select name="pickupLocationOption"><option>Enter new pickup location</option><option>Use my account/default location</option></select></label>
+        ${phoneRequired ? renderField({ name: 'customerPhone', label: 'Contact phone', type: 'tel', required: true }) : ''}
       </div>
-      <div class="proinspect-access-control__step"><h3>2. Pickup requirement and location</h3>
-        <label>Pickup requirement<select name="pickup_required" required><option>Pickup required</option><option>No pickup required - lockbox already onsite</option><option>No pickup required - ProInspect supplies lockbox</option></select></label>
-        ${field('pickup_address','Pickup address','text',false,values.pickup_address || '')}
-        ${field('pickup_from_name','Who should we pick up from?','text',false,values.pickup_from_name || '')}
-        ${field('pickup_contact_phone','Pickup contact phone','tel',false,values.pickup_contact_phone || '')}
-        <label>Pickup notes<textarea name="pickup_notes">${escapeHtml(values.pickup_notes || '')}</textarea></label>
-      </div>
-      <div class="proinspect-access-control__step"><h3>3. Installation property</h3>
-        ${field('installation_address','Installation address','text',true,values.installation_address || '')}
-        <label>Location on property <span>Front door, side gate, meter box area, garage wall, rear entry, installer to choose suitable location.</span><input name="installation_location_on_property" required value="${escapeHtml(values.installation_location_on_property || '')}"></label>
-        <label>Occupancy status<select name="occupancy_status" required><option></option><option>Vacant</option><option>Tenanted</option><option>Owner occupied</option><option>Unknown</option></select></label>
-        <label>Access notes <span>Gate codes, alarm details, parking, pets, tenant contact, access limitations or anything the installer needs to know.</span><textarea name="access_notes">${escapeHtml(values.access_notes || '')}</textarea></label>
-      </div>
-      <div class="proinspect-access-control__step"><h3>4. Preferred date</h3>${field('preferred_date','Preferred date','date',true,values.preferred_date || '')}</div>
+      <div class="proinspect-access-control__step"><h3>2. ${escapeHtml(product.itemLabel)} details</h3>${product.fields.map(renderField).join('')}</div>
+      <div class="proinspect-access-control__step"><h3>3. Preferred date</h3>${renderField({ name: 'preferredDate', label: product.preferredDateLabel, type: 'date', required: true })}</div>
       <div class="proinspect-access-control__actions"><button type="button" class="proinspect-access-control__button proinspect-access-control__button--secondary" data-preview>Review details</button></div>
       <div class="proinspect-access-control__summary" data-summary hidden></div>
       <div class="proinspect-access-control__job-list" data-job-list>${jobList(jobs)}</div>
       <div class="proinspect-access-control__status" data-status hidden></div>
     </form>`;
+
     const form = root.querySelector('form');
-    const pickupSelect = form.elements.pickup_required;
-    const syncPickup = () => { const req = pickupSelect.value === 'Pickup required'; form.elements.pickup_address.required = req; form.elements.pickup_from_name.required = req; };
-    pickupSelect.addEventListener('change', syncPickup); syncPickup();
     form.querySelector('[data-preview]').addEventListener('click', () => preview(form, config, jobs));
-    form.addEventListener('click', (e) => {
-      if (e.target.matches('[data-confirm]')) { jobs.push(collect(form, config)); renderAdded(root, config, jobs); }
-      if (e.target.matches('[data-checkout]')) checkout(root, config, jobs);
-      if (e.target.matches('[data-add-another]')) renderForm(root, config, jobs);
+    form.addEventListener('change', () => syncConditionalRequirements(form, product));
+    syncConditionalRequirements(form, product);
+  }
+
+  function renderField(field) {
+    const required = field.required ? 'required' : '';
+    const helper = field.helper ? `<span>${escapeHtml(field.helper)}</span>` : '';
+    if (field.type === 'textarea') return `<label>${escapeHtml(field.label)}${helper}<textarea name="${field.name}" ${required}></textarea></label>`;
+    if (field.type === 'select') return `<label>${escapeHtml(field.label)}${helper}<select name="${field.name}" ${required}>${(field.options || []).map((option) => `<option value="${escapeHtml(option)}">${escapeHtml(option || 'Select')}</option>`).join('')}</select></label>`;
+    if (field.type === 'checkboxes') return `<fieldset class="proinspect-access-control__fieldset" data-checkbox-group="${field.name}"><legend>${escapeHtml(field.label)}</legend>${(field.options || []).map((option) => `<label><input type="checkbox" name="${field.name}" value="${escapeHtml(option)}"> ${escapeHtml(option)}</label>`).join('')}</fieldset>`;
+    return `<label>${escapeHtml(field.label)}${helper}<input name="${field.name}" type="${field.type || 'text'}" ${required}></label>`;
+  }
+
+  function syncConditionalRequirements(form, product) {
+    product.fields.filter((field) => field.conditionalRequired).forEach((field) => {
+      const input = form.elements[field.name];
+      const trigger = form.elements[field.conditionalRequired.field];
+      if (input && trigger) input.required = trigger.value === field.conditionalRequired.value;
     });
   }
-  function field(n,l,t,req,v){return `<label>${l}<input name="${n}" type="${t}" ${req?'required':''} value="${escapeHtml(v)}"></label>`;}
-  function collect(form, config){ const data = Object.fromEntries(new FormData(form).entries()); return { service_type:'Lockbox Installation', serviceType:'Lockbox Installation', ...config.client, shopifyCustomerId:config.client.shopify_customer_id, shopifyCompanyId:config.client.shopify_company_id, shopifyCompanyLocationId:config.client.shopify_company_location_id, clientName:config.client.client_name, customerName:config.client.customer_name, customerEmail:config.client.customer_email, customerPhone: data.customer_phone || config.client.customer_phone, customer_phone: data.customer_phone || config.client.customer_phone, pickupRequired:data.pickup_required, pickup_required:data.pickup_required, pickupAddress:data.pickup_address || '', pickup_address:data.pickup_address || '', pickupFromName:data.pickup_from_name || '', pickup_from_name:data.pickup_from_name || '', pickupContactPhone:data.pickup_contact_phone || '', pickup_contact_phone:data.pickup_contact_phone || '', pickupNotes:data.pickup_notes || '', pickup_notes:data.pickup_notes || '', installationAddress:data.installation_address, installation_address:data.installation_address, installationLocationOnProperty:data.installation_location_on_property, installation_location_on_property:data.installation_location_on_property, occupancyStatus:data.occupancy_status, occupancy_status:data.occupancy_status, accessNotes:data.access_notes || '', access_notes:data.access_notes || '', preferredDate:data.preferred_date, preferred_date:data.preferred_date }; }
-  function preview(form, config, jobs){ if(!form.reportValidity()) return; const job=collect(form,config); const s=form.querySelector('[data-summary]'); s.hidden=false; s.innerHTML=`<h3>5. Confirm details</h3><dl><dt>Client</dt><dd>${escapeHtml(job.client_name)} / ${escapeHtml(job.customer_email)}</dd><dt>Pickup</dt><dd>${escapeHtml(job.pickup_required)} ${escapeHtml(job.pickup_address)}</dd><dt>Installation</dt><dd>${escapeHtml(job.installation_address)} - ${escapeHtml(job.installation_location_on_property)}</dd><dt>Preferred date</dt><dd>${escapeHtml(job.preferred_date)}</dd></dl><button type="button" class="proinspect-access-control__button proinspect-access-control__button--secondary" onclick="this.closest('[data-summary]').hidden=true">Back</button> <button type="button" data-confirm class="proinspect-access-control__button proinspect-access-control__button--primary">Confirm this installation</button>`; }
-  function renderAdded(root, config, jobs){ root.innerHTML=`<div class="proinspect-access-control__panel proinspect-access-control__success"><h3>Installation added</h3>${jobList(jobs)}<button data-add-another class="proinspect-access-control__button proinspect-access-control__button--secondary">Add another Lockbox Installation</button> <button data-checkout class="proinspect-access-control__button proinspect-access-control__button--primary">Continue to checkout</button><div data-status></div></div>`; root.querySelector('[data-add-another]').onclick=()=>renderForm(root,config,jobs); root.querySelector('[data-checkout]').onclick=()=>checkout(root,config,jobs); }
-  function jobList(jobs){ return jobs.length ? `<h3>Job list</h3><ol>${jobs.map(j=>`<li>${escapeHtml(j.installation_address)} — ${escapeHtml(j.preferred_date)}</li>`).join('')}</ol>` : ''; }
-  async function checkout(root, config, jobs){ const status=root.querySelector('[data-status]') || root; try { if(!jobs.length) throw new Error('Add at least one installation.'); if(config.checkoutMode !== 'Create job only' && !config.variantId) throw new Error('Shopify variant ID is required.'); status.hidden=false; status.textContent='Creating job drafts…'; const res=await fetch(`${config.apiBase}/api/access-control/jobs/request`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({jobs})}); if(!res.ok) throw new Error(await res.text()); const payload=await res.json(); if(config.checkoutMode === 'Create job only'){ status.textContent=`Jobs created: ${payload.jobs.map(j=>j.id).join(', ')}`; return; } for(let i=0;i<payload.jobs.length;i++){ const id=payload.jobs[i].id, j=jobs[i]; await fetch('/cart/add.js',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:[{id:config.variantId,quantity:1,properties:{'Service':'Lockbox Installation','Job ID':id,'Pickup required':j.pickup_required,'Pickup address':j.pickup_address,'Pick up from':j.pickup_from_name,'Installation address':j.installation_address,'Location on property':j.installation_location_on_property,'Preferred date':j.preferred_date,'_proinspect_job_id':id,'_service_type':'Lockbox Installation','_shopify_customer_id':j.shopify_customer_id,'_shopify_company_id':j.shopify_company_id,'_shopify_company_location_id':j.shopify_company_location_id}}]})}); } window.location.href='/checkout'; } catch(err){ status.hidden=false; status.textContent=err.message; status.classList.add('proinspect-access-control__status--error'); } }
-  function escapeHtml(v){ return String(v ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+  function collect(form, config) {
+    const product = productConfigs[config.productType] || productConfigs['Lockbox Installation'];
+    const formData = new FormData(form);
+    const data = {
+      serviceType: config.productType,
+      ...config.client,
+      customerPhone: String(formData.get('customerPhone') || config.client.customerPhone || ''),
+      preferredDate: String(formData.get('preferredDate') || '')
+    };
+
+    product.fields.forEach((field) => {
+      if (field.type === 'checkboxes') data[field.name] = formData.getAll(field.name).map(String);
+      else data[field.name] = String(formData.get(field.name) || '');
+    });
+
+    return data;
+  }
+
+  function validateProduct(form, config) {
+    const product = productConfigs[config.productType] || productConfigs['Lockbox Installation'];
+    const data = collect(form, config);
+    const checkboxField = product.fields.find((field) => field.type === 'checkboxes' && field.required);
+    if (checkboxField && !data[checkboxField.name].length) {
+      alert(`Select at least one option for ${checkboxField.label}.`);
+      return false;
+    }
+    return form.reportValidity();
+  }
+
+  function preview(form, config, jobs) {
+    if (!validateProduct(form, config)) return;
+    const product = productConfigs[config.productType] || productConfigs['Lockbox Installation'];
+    const job = collect(form, config);
+    const summary = form.querySelector('[data-summary]');
+    summary.hidden = false;
+    summary.innerHTML = `<h3>Confirm details</h3>${summaryList(job, product.summary)}<div class="proinspect-access-control__actions"><button type="button" data-back class="proinspect-access-control__button proinspect-access-control__button--secondary">Back</button><button type="button" data-confirm class="proinspect-access-control__button proinspect-access-control__button--primary">${escapeHtml(product.confirmLabel)}</button></div>`;
+    summary.querySelector('[data-back]').addEventListener('click', () => { summary.hidden = true; });
+    summary.querySelector('[data-confirm]').addEventListener('click', () => {
+      jobs.push(job);
+      renderAdded(form.closest('[data-access-control-root]'), config, jobs);
+    });
+  }
+
+  function summaryList(job, fields) {
+    return `<dl><dt>Client</dt><dd>${escapeHtml(job.clientName || job.customerName)} / ${escapeHtml(job.customerEmail)}</dd>${fields.map((field) => `<dt>${escapeHtml(labelFor(field))}</dt><dd>${escapeHtml(displayValue(job[field]))}</dd>`).join('')}</dl>`;
+  }
+
+  function renderAdded(root, config, jobs) {
+    const product = productConfigs[config.productType] || productConfigs['Lockbox Installation'];
+    root.innerHTML = `<div class="proinspect-access-control__panel proinspect-access-control__success"><h3>${escapeHtml(product.itemLabel)} added</h3>${jobList(jobs)}<div class="proinspect-access-control__actions"><button data-add-another class="proinspect-access-control__button proinspect-access-control__button--secondary">${escapeHtml(product.addAnotherLabel)}</button><button data-checkout class="proinspect-access-control__button proinspect-access-control__button--primary">Continue to checkout</button></div><div data-status class="proinspect-access-control__status" hidden></div></div>`;
+    root.querySelector('[data-add-another]').addEventListener('click', () => renderForm(root, config, jobs));
+    root.querySelector('[data-checkout]').addEventListener('click', () => checkout(root, config, jobs));
+  }
+
+  function jobList(jobs) {
+    return jobs.length ? `<h3>Job list</h3><ol>${jobs.map((job) => `<li>${escapeHtml(job.serviceType)} — ${escapeHtml(primaryLabel(job))} — ${escapeHtml(job.preferredDate)}</li>`).join('')}</ol>` : '';
+  }
+
+  function primaryLabel(job) {
+    return job.installationAddress || job.currentPropertyAddress || job.destinationPropertyAddress || job.propertyAddress || job.propertyOrPortfolioDetails || job.clientName || 'Access Control job';
+  }
+
+  async function checkout(root, config, jobs) {
+    const status = root.querySelector('[data-status]') || root;
+    try {
+      if (!jobs.length) throw new Error('Add at least one job.');
+      if (config.checkoutMode !== 'Create job only' && !config.variantId) throw new Error('Shopify variant ID is required.');
+      status.hidden = false;
+      status.textContent = 'Creating job drafts...';
+      const response = await fetch(`${config.apiBase}/api/access-control/jobs/request`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobs })
+      });
+      if (!response.ok) throw new Error(await response.text());
+      const payload = await response.json();
+      if (config.checkoutMode === 'Create job only') {
+        status.textContent = `Jobs created: ${payload.jobs.map((job) => job.id).join(', ')}`;
+        return;
+      }
+
+      for (let index = 0; index < payload.jobs.length; index += 1) {
+        const saved = payload.jobs[index];
+        const job = jobs[index];
+        await fetch('/cart/add.js', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            items: [{
+              id: Number(config.variantId),
+              quantity: 1,
+              properties: cartProperties(saved.id, job)
+            }]
+          })
+        });
+      }
+      window.location.href = '/checkout';
+    } catch (error) {
+      status.hidden = false;
+      status.textContent = error instanceof Error ? error.message : 'Unable to continue to checkout.';
+      status.classList.add('proinspect-access-control__status--error');
+    }
+  }
+
+  function cartProperties(jobId, job) {
+    const product = productConfigs[job.serviceType] || productConfigs['Lockbox Installation'];
+    const properties = {
+      Service: job.serviceType,
+      'Job ID': jobId,
+      '_proinspect_job_id': jobId,
+      '_service_type': job.serviceType,
+      '_shopify_customer_id': job.shopifyCustomerId,
+      '_shopify_company_id': job.shopifyCompanyId,
+      '_shopify_company_location_id': job.shopifyCompanyLocationId
+    };
+    product.cart.forEach((field) => {
+      properties[labelFor(field)] = displayValue(job[field]);
+    });
+    return properties;
+  }
+
+  function labelFor(field) {
+    return String(field).replace(/([A-Z])/g, ' $1').replace(/^./, (char) => char.toUpperCase());
+  }
+
+  function displayValue(value) {
+    return Array.isArray(value) ? value.join(', ') : String(value || '');
+  }
+
+  function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
+  }
 })();
