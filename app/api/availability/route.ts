@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getFreeBusyWindow, type BusyWindow } from '@/lib/calendar';
 import { getServiceRule } from '@/lib/serviceRules';
 import { serviceTypes, type ServiceType } from '@/lib/types';
 
@@ -10,14 +11,35 @@ const availabilityRequestSchema = z.object({
   serviceType: z.enum(serviceTypes),
   propertyAddress: z.string().min(6),
   preferredDate: z.string().min(10).max(10),
-  placeId: z.string().optional()
+  placeId: z.string().optional(),
+  requireCalendar: z.boolean().optional()
 });
+
+type AvailabilityRequest = z.infer<typeof availabilityRequestSchema>;
 
 type LoadingLabel = 'Standard Hours' | 'Weekday After Hours' | 'Saturday' | 'Sunday' | 'Public Holiday';
 
 type LoadingRuleResult = {
   loadingLabel: LoadingLabel;
   loadingAmount: number;
+};
+
+type AvailabilitySlot = {
+  start: string;
+  end: string;
+  serviceType: ServiceType;
+  durationMinutes: number;
+  bufferMinutes: number;
+  loadingLabel: LoadingLabel;
+  loadingAmount: number;
+  currencyCode: 'AUD';
+  priceAmount: number;
+  priceLabel: string;
+  travelFromPreviousMinutes: number | null;
+  travelToNextMinutes: number | null;
+  score: number;
+  reason: string;
+  calendarVerified?: boolean;
 };
 
 const servicePriceMap: Record<ServiceType, Record<LoadingLabel, number>> = {
@@ -79,7 +101,22 @@ function toIsoWithPerthOffset(date: Date) {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00+08:00`;
 }
 
-function estimatePlaceholderTravelMinutes(slotIndex: number) {
+function ymdFromDate(date: Date) {
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
+}
+
+function dayBounds(preferredDate: string) {
+  const [year, month, day] = preferredDate.split('-').map(Number);
+  const nextDay = new Date(Date.UTC(year, month - 1, day + 1));
+
+  return {
+    timeMin: `${preferredDate}T00:00:00+08:00`,
+    timeMax: `${ymdFromDate(nextDay)}T00:00:00+08:00`
+  };
+}
+
+function estimateTravelMinutes(slotIndex: number) {
   return 12 + slotIndex * 4;
 }
 
@@ -95,7 +132,7 @@ function priceFor(serviceType: ServiceType, loadingLabel: LoadingLabel) {
   return servicePriceMap[serviceType][loadingLabel] ?? servicePriceMap[serviceType]['Standard Hours'];
 }
 
-function buildCandidateSlots(input: z.infer<typeof availabilityRequestSchema>) {
+function buildCandidateSlots(input: AvailabilityRequest): AvailabilitySlot[] {
   const rule = getServiceRule(input.serviceType);
   const [year, month, day] = input.preferredDate.split('-').map(Number);
   const slotStarts = [9, 10.5, 12, 13.5, 15, 16.5];
@@ -108,7 +145,7 @@ function buildCandidateSlots(input: z.infer<typeof availabilityRequestSchema>) {
     end.setMinutes(end.getMinutes() + rule.durationMinutes);
 
     const loading = classifyLoading(start);
-    const travelFromPreviousMinutes = estimatePlaceholderTravelMinutes(index);
+    const travelFromPreviousMinutes = estimateTravelMinutes(index);
     const priceAmount = priceFor(input.serviceType, loading.loadingLabel);
 
     return {
@@ -125,9 +162,28 @@ function buildCandidateSlots(input: z.infer<typeof availabilityRequestSchema>) {
       travelFromPreviousMinutes,
       travelToNextMinutes: null,
       score: 100 - travelFromPreviousMinutes - loading.loadingAmount / 5,
-      reason: 'Placeholder availability. Replace with Google Calendar FreeBusy and Google Routes scoring before production.'
+      reason: 'Candidate slot pending calendar verification.'
     };
   });
+}
+
+function overlapsBusyWindow(slot: AvailabilitySlot, busyWindow: BusyWindow) {
+  const slotStart = new Date(slot.start).getTime() - slot.bufferMinutes * 60_000;
+  const slotEnd = new Date(slot.end).getTime() + slot.bufferMinutes * 60_000;
+  const busyStart = new Date(busyWindow.start).getTime();
+  const busyEnd = new Date(busyWindow.end).getTime();
+
+  return slotStart < busyEnd && slotEnd > busyStart;
+}
+
+function filterCalendarAvailableSlots(slots: AvailabilitySlot[], busy: BusyWindow[]) {
+  return slots
+    .filter((slot) => !busy.some((busyWindow) => overlapsBusyWindow(slot, busyWindow)))
+    .map((slot) => ({
+      ...slot,
+      calendarVerified: true,
+      reason: 'Google Calendar checked. No overlapping event found for this slot.'
+    }));
 }
 
 export async function OPTIONS(request: NextRequest) {
@@ -151,7 +207,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const slots = buildCandidateSlots(parsed.data);
+    const candidateSlots = buildCandidateSlots(parsed.data);
+    const { timeMin, timeMax } = dayBounds(parsed.data.preferredDate);
+
+    const calendarWindow = await getFreeBusyWindow({
+      timeMin,
+      timeMax,
+      timeZone: 'Australia/Perth'
+    });
+
+    const slots = filterCalendarAvailableSlots(candidateSlots, calendarWindow.busy);
 
     return NextResponse.json(
       {
@@ -160,14 +225,24 @@ export async function POST(request: NextRequest) {
         placeId: parsed.data.placeId ?? null,
         preferredDate: parsed.data.preferredDate,
         slots,
-        mode: 'placeholder',
-        message: 'Availability API contract is ready. Calendar, Maps and live loading rules still need to be connected.'
+        mode: 'calendar',
+        calendarConnected: calendarWindow.connected,
+        calendarId: calendarWindow.calendarId,
+        busyCount: calendarWindow.busy.length,
+        message: 'Live Google Calendar availability calculated.'
       },
       { status: 200, headers: corsHeaders(origin) }
     );
   } catch (error) {
+    console.error('Failed to calculate calendar availability', error);
+
     return NextResponse.json(
-      { error: 'Failed to calculate availability' },
+      {
+        error: 'Failed to calculate availability',
+        calendarConnected: false,
+        mode: 'calendar_error',
+        message: error instanceof Error ? error.message : 'Unknown calendar availability error'
+      },
       { status: 500, headers: corsHeaders(origin) }
     );
   }
